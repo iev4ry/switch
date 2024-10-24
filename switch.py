@@ -6,8 +6,6 @@ import json
 import os
 
 
-
-
 class switch:
     def __init__(self):
         self.switch_list_name = 'switch_list.json'
@@ -22,47 +20,72 @@ class switch:
         if not os.path.exists(path):
             os.makedirs(path)
 
+    def make_db_path(self, switch_name, flag):
+        self.test = os.path.join(self.base_cwd, switch_name)
+        if flag == 'port':
+            self.port_file_name = '{}_ports.json'.format(switch_name)
+            return os.path.join(self.test, self.port_file_name)
+        else:
+            if flag == 'switch':
+                self.switch_file_name = '{}.json'.format(switch_name)
+                return os.path.join(self.test, self.switch_file_name) 
+                    
+    def get_port(self, switch_name, port):
+        try:
+            self.req_port_file = db.getDb(self.make_db_path(switch_name, 'port'))
+            self.gp_file = self.req_port_file.getByQuery({'port':port})[0]
+        except IndexError:
+           pass
+        except FileNotFoundError:
+            pass
+        else:return self.gp_file
+
     def get_switch(self, switch_name):
-        if os.path.isdir(switch_name):
-            os.chdir(switch_name)
-            self.switch_file = db.getDb('{}.json'.format(switch_name))
-            return self.switch_file.getByQuery({'switch':switch_name})[0]
+        try:
+            self.get_switch_file = db.getDb(self.make_db_path(switch_name, 'switch'))
+            self.gs_file = self.get_switch_file.getByQuery({'switch':switch_name})[0]
+        except IndexError:
+            pass
+        except FileNotFoundError:
+            pass
+        else:return self.gs_file 
+        
+    def get_port_id(self, switch_name, port):
+        self.get_path = os.path.join(self.base_cwd, switch_name)
+        if os.path.isdir(self.get_path):
+            self.port_file = db.getDb(self.make_db_path(switch_name, 'port'))
+            return self.port_file.getByQuery({'port':port})[0]['id']
+        
+    def get_switch_id(self, switch_name):
+        self.switch_id_path = os.path.join(self.base_cwd, switch_name)
+        if os.path.isdir(self.switch_id_path):
+            self.switch_file = db.getDb(self.make_db_path(switch_name, 'switch'))
+            return self.switch_file.getByQuery({'switch':switch_name})[0]['id']
+    
 
-    def get_ports_id(self, switch_name):
-        if os.path.isdir(switch_name):
-            os.chdir(switch_name)
-            self.port_file = db.getDb('{}_ports.json'.format(switch_name))
-            self.id = self.port_file.getByQuery({})[0]['id']
-            os.chdir(self.base_cwd)
-            return self.id
+    def load_port(self, switch_name):
+        try:
+            self.load_ports_file = db.getDb(self.make_db_path(switch_name, 'port'))
+        except FileNotFoundError:
+            pass
+        else:
+            return self.load_ports_file
 
-    def get_ports(self, switch_name):
-        if os.path.isdir(switch_name):
-            os.chdir(switch_name)
-            self.port_query = db.getDb('{}_ports.json'.format(switch_name))
-            return self.port_query.getByQuery({})[0]
+    def update_port(self, switch_name, port, update):
+        self.update_port = self.load_port(switch_name)
+        self.update_port_data = self.get_port(switch_name, port)
+        self.update_port.updateById(self.get_port_id(switch_name, port), update)
 
-    def update_port(self, switch_name, port):
-        os.chdir(switch_name)
-        self.load_ports = self.get_ports(switch_name)
-        self.loaded_id = self.get_ports_id(switch_name)
-        self.load_ports[port]['owner'] ='hello'
-        p = db.getDb('{}_ports.json'.format(switch_name))
-        print(self.get_ports_id(switch_name))
-        os.chdir(self.base_cwd)
-        p.updateById(self.get_ports_id(switch_name), self.load_ports)
-        print(os.getcwd())
-              
+            
     def make_switch(self, switch_name, port_count=16):
-        raw_switch_name = switch_name
-        switch_name = '{}.json'.format(switch_name)
-        self.make_path(raw_switch_name)
-        self.pre_cwd = os.getcwd()
-        os.chdir(raw_switch_name)
-        if not Path(switch_name).is_file():
-            self.switch = db.getDb(switch_name)
+        self.raw_switch_name = switch_name
+        self.switch_name = '{}.json'.format(switch_name)
+        self.make_path(self.raw_switch_name)
+        os.chdir(self.raw_switch_name)
+        if not Path(self.switch_name).is_file():
+            self.switch = db.getDb(self.switch_name)
             self.switch_config = {
-                'switch':raw_switch_name,
+                'switch':self.raw_switch_name,
                 'ports':{},
                 'clients':[],
                 'clientmap':{},
@@ -74,36 +97,37 @@ class switch:
                     'rx':0,
                     'tx':0,
                     'created':str(datetime.datetime.now())}}
-            self.switch.add(self.switch_config)
-            self.ports = db.getDb('{}_ports.json'.format(raw_switch_name))
-            self.temp = {}
+            
+            self.ports = db.getDb('{}_ports.json'.format(self.raw_switch_name))
             for port_number in range(0, port_count):
-                self.port_name ='port{}'.format(port_number)
-                self.port_id = '{}{}'.format(raw_switch_name, self.port_name)
+                self.port_name = 'port{}'.format(port_number)
+                self.switch_config['ports']['port_count'] = port_count
+                self.port_id = '{}{}'.format(self.raw_switch_name, self.port_name)
                 self.switch_config['pids'].append(self.port_id)
-                self.temp[self.port_name] = {}
-                self.temp[self.port_name]['stats'] = {}
-                self.temp[self.port_name]['stats']['state'] = False
-                self.temp[self.port_name]['stats']['owner'] = None
-                self.temp[self.port_name]['stats']['group'] = None
-                self.temp[self.port_name]['stats']['tx'] = 0
-                self.temp[self.port_name]['stats']['rx'] = 0
-                self.temp[self.port_name]['info'] = {}
-                self.temp[self.port_name]['info']['pid'] = self.port_id
-                self.temp[self.port_name]['info']['access'] = []
-                self.temp[self.port_name]['info']['last-change']='SYSTEM'
-                self.temp[self.port_name]['data'] = []
-            self.ports.add(self.temp)
-            os.chdir(self.pre_cwd)
-        os.chdir(self.pre_cwd)
-
+                self.ports.add({
+                    'port':self.port_name,
+                    'stats':{
+                        'state':False,
+                        'owner':None,
+                        'group':None,
+                        'tx':0,
+                        'rx':0,},
+                    'info':{
+                        'pid':self.port_id,
+                        'access':[],
+                        'last-change':'SYSTEM'},
+                    'data':[]})
+            self.switch.add(self.switch_config)
+            
         
+                       
+    
 s = switch()
-s.make_switch('myswitch')
-s.get_ports_id('oknb')
-s.update_port('myswitch', 'port2')
-
-#print(s.get_switch('myswitch'))
-#s.make_path('myswitch')
-
-
+s.make_switch('123df')
+print(s.get_port_id('123d', 'port5'))
+print(s.get_switch_id('123d'))
+print(s.load_port('123df'))
+s.update_port('123df', 'port3',{'info':{'owner':'me'}})
+#print(s.get_port('123d', 'port0'))
+#print(s.get_switch('123d'))
+#print(s.make_db_path('123d', 'switch'))
