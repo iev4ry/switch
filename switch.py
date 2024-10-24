@@ -62,7 +62,6 @@ class switch:
             self.switch_file = db.getDb(self.make_db_path(switch_name, 'switch'))
             return self.switch_file.getByQuery({'switch':switch_name})[0]['id']
     
-
     def load_port(self, switch_name):
         try:
             self.load_ports_file = db.getDb(self.make_db_path(switch_name, 'port'))
@@ -72,11 +71,16 @@ class switch:
             return self.load_ports_file
 
     def update_port(self, switch_name, port, update):
-        self.update_port = self.load_port(switch_name)
-        self.update_port_data = self.get_port(switch_name, port)
-        self.update_port.updateById(self.get_port_id(switch_name, port), update)
+        self.update_port_load = self.load_port(switch_name)
+        self.update_port_load.updateById(self.get_port_id(switch_name, port), update)
 
-            
+    def enable_port(self, switch_name, port):
+        self.ep = self.get_port(switch_name, port)
+        if not self.ep == None:
+            if self.ep['stats']['state'] == False:
+                self.ep['stats']['state'] = True
+                self.update_port(switch_name, port, self.ep)
+                   
     def make_switch(self, switch_name, port_count=16):
         self.raw_switch_name = switch_name
         self.switch_name = '{}.json'.format(switch_name)
@@ -128,6 +132,7 @@ print(s.get_port_id('123d', 'port5'))
 print(s.get_switch_id('123d'))
 print(s.load_port('123df'))
 s.update_port('123df', 'port3',{'info':{'owner':'me'}})
+s.enable_port('123df', 'port5')
 #print(s.get_port('123d', 'port0'))
 #print(s.get_switch('123d'))
 #print(s.make_db_path('123d', 'switch'))
