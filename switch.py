@@ -6,6 +6,10 @@ import json
 import os
 
 
+''' --SWITCH--[DRAFT]
+ *** This code may not be the most optimized at this stage ***
+ [Author] *33
+
 class switch:
     def __init__(self):
         self.switch_list_name = 'switch_list.json'
@@ -70,57 +74,112 @@ class switch:
         else:
             return self.load_ports_file
 
+
+    def load_switch(self, switch_name):
+        try:
+            self.load_switch_file = db.getDb(self.make_db_path(switch_name, 'switch'))
+        except FileNotFoundError:
+            pass
+        else: return self.load_switch_file
+
+
     def update_port(self, switch_name, port, update):
         self.update_port_load = self.load_port(switch_name)
         self.update_port_load.updateById(self.get_port_id(switch_name, port), update)
 
-    def enable_port(self, switch_name, port):
-        self.ep = self.get_port(switch_name, port)
-        if not self.ep == None:
-            if self.ep['stats']['state'] == False:
-                self.ep['stats']['state'] = True
-                self.update_port(switch_name, port, self.ep)
+    def update_switch(self, switch_name, update):
+        self.update_switch_load = self.load_switch(switch_name)
+        self.update_switch_load.updateById(self.get_switch_id(switch_name), update)
 
-    def disable_port(self, switch_name, port):
-        self.dp = self.get_port(switch_name, port)
-        if not self.dp == None:
-            if self.dp['stats']['state'] == True:
-                self.dp['stats']['state'] = False
-                self.update_port(switch_name, port, self.dp)
+    def enable_port(self, switch_name, port, data):
+        try:
+            if data['stats']['state'] == False:
+                data['stats']['state'] = True
+        except TypeError:
+            print('cannot enable port')
+        else:
+            return data
 
-    def set_port_owner(self, switch_name, port, owner):
-        self.so = self.get_port(switch_name, port)
-        if not self.so == None:
-            if self.so['stats']['owner'] == None:
-                self.so['stats']['owner'] = owner
-                self.update_port(switch_name, port, self.so)
+    def disable_port(self, switch_name, port, data):
+        try:
+            if data['stats']['state'] == True:
+                data['stats']['state'] = False
+        except TypeError:
+            print('cannot disable port')
+        else:
+            return data
 
-    def set_port_group(self, switch_name, port, group):
-        self.spg = self.get_port(switch_name, port)
-        if not self.spg == None:
-            if self.spg['stats']['group'] == None:
-                self.spg['stats']['group'] = group
-                self.update_port(switch_name, port, self.spg)
+    def set_port_owner(self, switch_name, port, owner, key, data):
+        try:
+            data['stats']['owner'] = owner
+            data['info']['key'] = key
+        except TypeError:
+            print('port invalid')
+        else:
+            return data
+
+
+    def set_port_group(self, switch_name, port, group, data):
+        try:
+            if data['stats']['group'] == None:
+                data['stats']['group'] = group
+        except TypeError:
+            print('cannot set group')
+        else:
+            return data
                 
-    def set_port_last_change(self, switch_name, port, change):
-        self.splc = self.get_port(switch_name, port)
-        if not self.splc == None:
-            self.splc['info']['last-change'] = change
-            self.update_port(switch_name, port, self.splc)
+    def set_port_last_change(self, switch_name, port, change, data):
+        try:
+            data['info']['last-change'] = change
+        except TypeError:
+            print('cannot change port status')
+        else:
+            return data
 
-    def add_port_access(self, switch_name, port, to_allow_access):
-        self.apa = self.get_port(switch_name, port)
-        if not self.apa == None:
-            if not to_allow_access in self.apa['info']['access']:
-                self.apa['info']['access'].append(to_allow_access)
-                self.update_port(switch_name, port, self.apa)
+    def add_port_access(self, switch_name, port, to_allow_access, data):
+        try:
+            if not to_allow_access in data['info']['access']:
+                data['info']['access'].append(to_allow_access)
+        except TypeError:
+            pass
+        else:
+            return data
+        
 
-    def remove_port_access(self, switch_name, port, to_remove_access):
-        self.rpa = self.get_port(switch_name, port)
-        if not self.rpa == None:
-            if to_remove_access in self.rpa['info']['access']:
-                self.rpa['info']['access'].remove(to_remove_access)
-                self.update_port(switch_name, port, self.rpa)
+    def remove_port_access(self, switch_name, port, to_remove_access, data):
+        try:
+            if to_remove_access in data['info']['access']:
+                data['info']['access'].remove(to_remove_access)
+
+        except TypeError:
+            pass
+        else:
+            return data
+                
+                
+
+
+    def register_port(self, switch_name, owner, key, port):
+        self.rps = self.get_switch(switch_name)
+        if not owner in self.rps['clients']:
+            x = self.set_port_owner(switch_name, port, owner, key, self.get_port(switch_name, port))
+            self.enable_port(switch_name, port, x)
+            self.disable_port(switch_name, port, x)
+            self.set_port_group(switch_name, port, 'mygroup100', x)
+            self.set_port_last_change(switch_name, port, 'awesome stuff!', x)
+            self.add_port_access(switch_name, port, 'mesun', x)
+            self.remove_port_access(switch_name, port, 'mesun', x)
+            print(x)
+            
+            
+            '''
+            self.rps['clients'].append(owner)
+            self.rps['clientmap'][owner] = {}
+            self.rps['clientmap'][owner]['port'] = port
+            self.rps['portmap'][port] = {}
+            self.rps['portmap'][port] = owner
+            self.update_switch(switch_name, self.rps)'''
+            
 
     def make_switch(self, switch_name, port_count=16):
         self.raw_switch_name = switch_name
@@ -158,6 +217,7 @@ class switch:
                         'tx':0,
                         'rx':0,},
                     'info':{
+                        'key':None,
                         'pid':self.port_id,
                         'access':[],
                         'last-change':'SYSTEM'},
@@ -172,11 +232,11 @@ s.make_switch('123df')
 print(s.get_port_id('123d', 'port5'))
 print(s.get_switch_id('123d'))
 print(s.load_port('123df'))
-s.update_port('123df', 'port3',{'info':{'owner':'me'}})
-s.disable_port('123df', 'port5')
-s.set_port_owner('123df', 'port5', 'me')
-s.remove_port_access('123dxf', 'port5', 'mycool')
-s.set_port_last_change('123df', 'port5', 'mychange')
+#s.update_port('123df', 'port3',{'info':{'owner':'me'}})
+s.register_port('123df', 'tom', 'mykey', 'port5')
+#s.set_port_owner('123df', 'port5', '1000')
+#s.remove_port_access('123dxf', 'port5', 'mycool')
+#s.set_port_last_change('123df', 'port5', 'mychange')
 #print(s.get_port('123d', 'port0'))
 #print(s.get_switch('123d'))
 #print(s.make_db_path('123d', 'switch'))
