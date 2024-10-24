@@ -80,7 +80,48 @@ class switch:
             if self.ep['stats']['state'] == False:
                 self.ep['stats']['state'] = True
                 self.update_port(switch_name, port, self.ep)
-                   
+
+    def disable_port(self, switch_name, port):
+        self.dp = self.get_port(switch_name, port)
+        if not self.dp == None:
+            if self.dp['stats']['state'] == True:
+                self.dp['stats']['state'] = False
+                self.update_port(switch_name, port, self.dp)
+
+    def set_port_owner(self, switch_name, port, owner):
+        self.so = self.get_port(switch_name, port)
+        if not self.so == None:
+            if self.so['stats']['owner'] == None:
+                self.so['stats']['owner'] = owner
+                self.update_port(switch_name, port, self.so)
+
+    def set_port_group(self, switch_name, port, group):
+        self.spg = self.get_port(switch_name, port)
+        if not self.spg == None:
+            if self.spg['stats']['group'] == None:
+                self.spg['stats']['group'] = group
+                self.update_port(switch_name, port, self.spg)
+                
+    def set_port_last_change(self, switch_name, port, change):
+        self.splc = self.get_port(switch_name, port)
+        if not self.splc == None:
+            self.splc['info']['last-change'] = change
+            self.update_port(switch_name, port, self.splc)
+
+    def add_port_access(self, switch_name, port, to_allow_access):
+        self.apa = self.get_port(switch_name, port)
+        if not self.apa == None:
+            if not to_allow_access in self.apa['info']['access']:
+                self.apa['info']['access'].append(to_allow_access)
+                self.update_port(switch_name, port, self.apa)
+
+    def remove_port_access(self, switch_name, port, to_remove_access):
+        self.rpa = self.get_port(switch_name, port)
+        if not self.rpa == None:
+            if to_remove_access in self.rpa['info']['access']:
+                self.rpa['info']['access'].remove(to_remove_access)
+                self.update_port(switch_name, port, self.rpa)
+
     def make_switch(self, switch_name, port_count=16):
         self.raw_switch_name = switch_name
         self.switch_name = '{}.json'.format(switch_name)
@@ -132,7 +173,10 @@ print(s.get_port_id('123d', 'port5'))
 print(s.get_switch_id('123d'))
 print(s.load_port('123df'))
 s.update_port('123df', 'port3',{'info':{'owner':'me'}})
-s.enable_port('123df', 'port5')
+s.disable_port('123df', 'port5')
+s.set_port_owner('123df', 'port5', 'me')
+s.remove_port_access('123dxf', 'port5', 'mycool')
+s.set_port_last_change('123df', 'port5', 'mychange')
 #print(s.get_port('123d', 'port0'))
 #print(s.get_switch('123d'))
 #print(s.make_db_path('123d', 'switch'))
