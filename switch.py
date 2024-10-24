@@ -9,6 +9,7 @@ import os
 ''' --SWITCH--[DRAFT]
  *** This code may not be the most optimized at this stage ***
  [Author] *33
+ '''
 
 class switch:
     def __init__(self):
