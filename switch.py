@@ -155,15 +155,14 @@ class switch:
                            self.add_switch_group(switch_name, self.new_group, sdata, owner)
                            data['stats']['group'] = self.new_group
                            
-                            
-                  
         except KeyError as e:
             print(e, self.old_group)
                     
 
-    def del_user_from_switch_group(switch_name, group, data, user):
+    def del_user_from_switch_group(self, switch_name, group, data, user):
         if user in data['groupmap'][group]['members']:
-            print('nice')
+            data['groupmap'][group]['members'].remove(user)
+            self.update_switch(switch_name, data)
 
     def add_switch_group(self, switch_name, group, data, owner):
         if not group in data['groupmap'].keys():
@@ -246,6 +245,23 @@ class switch:
                     self.update_port(switch_name, self.plookup['clientmap'][user]['port'], self.pdata)
                     
 
+    def action_remove_from_group(self, switch_name, group, user, key):
+        self.arf = self.client_to_port_lookup(switch_name, user)
+        if not self.arf == None:
+            self.arf_data = self.get_port(switch_name, self.arf['clientmap'][user]['port'])
+            if self.auth_check(self.arf_data, user, key):
+                if not self.arf_data['stats']['group'] == None:
+                    self.del_user_from_switch_group(switch_name, group, self.arf, user)
+                    self.arf_data['stats']['group'] = None
+                    self.update_port(switch_name, self.arf['clientmap'][user]['port'], self.arf_data)
+                else:
+                    pass
+
+                
+                
+                
+                    
+
     def make_switch(self, switch_name, port_count=16):
         self.raw_switch_name = switch_name
         self.switch_name = '{}.json'.format(switch_name)
@@ -301,7 +317,9 @@ print(s.load_port('123df'))
 s.register_port('123df', 'tom', 'mykey', 'port5')
 s.register_port('123df', 'tom3', 'mykey4000', 'port6')
 s.register_port('123df', 'tom12', 'mykey4000', 'port12')
-s.action_set_port_group('123df','mygroup207', 'tom', 'mykey')
+#s.action_set_port_group('123df','mygroup20', 'tom', 'mykey')
+#s.action_set_port_group('123df', 'mygroup20', 'tom3', 'mykey4000')
+s.action_remove_from_group('123df', 'mygroup20', 'tom', 'mykey')
 
 #print(s.get_port('123d', 'port0'))
 #print(s.get_switch('123d'))
