@@ -257,11 +257,28 @@ class switch:
                 else:
                     pass
 
-                
-                
-                
+
+    def action_add_port_access(self, switch_name, user, owner, key):
+        self.aap = self.client_to_port_lookup(switch_name, owner)
+        if not self.aap == None:
+            self.aap_data = self.get_port(switch_name, self.aap['clientmap'][owner]['port'])
+            if self.auth_check(self.aap_data, user, key):
+                if self.aap_data['stats']['group'] == None:
+                    if not user in self.aap_data['info']['access']:
+                        self.add_port_access(user, self.aap_data)
+                        self.update_port(switch_name, self.aap['clientmap'][owner]['port'], self.aap_data)
                     
 
+    def action_remove_port_access(self, switch_name, user, owner, key):
+         self.arp = self.client_to_port_lookup(switch_name, owner)
+         if not self.arp == None:
+             self.arp_data = self.get_port(switch_name, self.arp['clientmap'][owner]['port'])
+             if self.auth_check(self.arp_data, user, key):
+                 if self.arp_data['stats']['group'] == None:
+                     self.remove_port_access(user, self.arp_data )
+                     self.update_port(switch_name, self.arp['clientmap'][owner]['port'], self.arp_data)
+        
+            
     def make_switch(self, switch_name, port_count=16):
         self.raw_switch_name = switch_name
         self.switch_name = '{}.json'.format(switch_name)
@@ -320,6 +337,7 @@ s.register_port('123df', 'tom12', 'mykey4000', 'port12')
 #s.action_set_port_group('123df','mygroup20', 'tom', 'mykey')
 #s.action_set_port_group('123df', 'mygroup20', 'tom3', 'mykey4000')
 s.action_remove_from_group('123df', 'mygroup20', 'tom', 'mykey')
+s.action_remove_port_access('123df', 'timmy', 'tom', 'mykey')
 
 #print(s.get_port('123d', 'port0'))
 #print(s.get_switch('123d'))
