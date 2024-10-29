@@ -131,14 +131,57 @@ class switch:
         else:
             return data
 
-    def set_port_group(self, group, data):
+    def set_port_group(self, switch_name, group, data, owner, sdata):
         try:
+            self.old_group = data['stats']['group']
+            self.new_group = group
             if data['stats']['group'] == None:
                 data['stats']['group'] = group
-        except TypeError:
-            print('cannot set group')
+                self.add_switch_group(switch_name, group, self.get_switch(switch_name), owner)
+                
+            else:
+                if data['stats']['group'] == group:
+                    print('same')
+                else:
+                    self.old_group = data['stats']['group']
+                    self.new_group = group
+                    if owner in sdata['groupmap'][self.old_group]['members']:
+                       if len(sdata['groupmap'][self.old_group]['members']) - 1 == 0:
+                           del sdata['groupmap'][self.old_group]
+                           self.add_switch_group(switch_name, self.new_group, sdata, owner)
+                           data['stats']['group'] = self.new_group
+                       else:
+                           sdata['groupmap'][self.old_group]['members'].remove(owner)
+                           self.add_switch_group(switch_name, self.new_group, sdata, owner)
+                           data['stats']['group'] = self.new_group
+                           
+                            
+                  
+        except KeyError as e:
+            print(e, self.old_group)
+                    
+
+    def del_user_from_switch_group(switch_name, group, data, user):
+        if user in data['groupmap'][group]['members']:
+            print('nice')
+
+    def add_switch_group(self, switch_name, group, data, owner):
+        if not group in data['groupmap'].keys():
+           data['groupmap'][group] = {
+               'members':[owner]}
+           self.update_switch(switch_name, data)
         else:
-            return data
+            if not owner in data['groupmap'][group]['members']:
+                data['groupmap'][group]['members'].append(owner)
+                self.update_switch(switch_name, data)
+                return data
+                
+
+    def del_switch_group(self, switch_name, group, data):
+        if group in data['groupmap'].keys():
+            del data['groupmap'][group]
+            self.update_switch(switch_name, data)
+            
                 
     def set_port_last_change(self, change, data):
         try:
@@ -172,10 +215,37 @@ class switch:
         self.port_data = self.get_port(switch_name, port)
         if not self.set_port_owner(owner, key, self.port_data, self.rps['clients']) == None:
             self.set_port_last_change('{} registered to self'.format(owner), self.port_data)
+            self.rps['clientmap'][owner] = {}
+            self.rps['clientmap'][owner] = {
+                'port':port}
             self.add_switch_client(owner, self.rps)
             self.update_switch(switch_name, self.rps)
             self.update_port(switch_name, port, self.port_data)
-            
+
+    def auth_check(self, data, owner, key):
+        try:
+            if data['info']['key'] == key:
+                return True
+        except TypeError:
+            return False
+
+    def client_to_port_lookup(self, switch_name, owner):
+        try:
+            self.ctp = self.get_switch(switch_name)
+            if owner in self.ctp['clientmap'].keys():
+                return self.ctp
+        except TypeError:
+           return None
+    
+    def action_set_port_group(self, switch_name, group, user, key):
+            self.plookup = self.client_to_port_lookup(switch_name, user)
+            if not self.plookup == None:
+                self.pdata = self.get_port(switch_name, self.plookup['clientmap'][user]['port'])
+                if self.auth_check(self.pdata, user, key):
+                    self.set_port_group(switch_name, group, self.pdata, user, self.plookup)
+                    self.update_port(switch_name, self.plookup['clientmap'][user]['port'], self.pdata)
+                    
+
     def make_switch(self, switch_name, port_count=16):
         self.raw_switch_name = switch_name
         self.switch_name = '{}.json'.format(switch_name)
@@ -220,8 +290,7 @@ class switch:
             self.switch.add(self.switch_config)
             
         
-
-#Remove switch name from helper functions              
+            
     
 s = switch()
 s.make_switch('123df')
@@ -232,6 +301,7 @@ print(s.load_port('123df'))
 s.register_port('123df', 'tom', 'mykey', 'port5')
 s.register_port('123df', 'tom3', 'mykey4000', 'port6')
 s.register_port('123df', 'tom12', 'mykey4000', 'port12')
+s.action_set_port_group('123df','mygroup207', 'tom', 'mykey')
 
 #print(s.get_port('123d', 'port0'))
 #print(s.get_switch('123d'))
