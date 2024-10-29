@@ -138,6 +138,7 @@ class switch:
             if data['stats']['group'] == None:
                 data['stats']['group'] = group
                 self.add_switch_group(switch_name, group, self.get_switch(switch_name), owner)
+                print('k')
                 
             else:
                 if data['stats']['group'] == group:
@@ -150,13 +151,16 @@ class switch:
                            del sdata['groupmap'][self.old_group]
                            self.add_switch_group(switch_name, self.new_group, sdata, owner)
                            data['stats']['group'] = self.new_group
+                           print('ok')
                        else:
+                           print('looo')
                            sdata['groupmap'][self.old_group]['members'].remove(owner)
                            self.add_switch_group(switch_name, self.new_group, sdata, owner)
                            data['stats']['group'] = self.new_group
                            
         except KeyError as e:
-            print(e, self.old_group)
+            print(sdata)
+            #self.add_switch_group(switch_name, self.new_group, sdata, owner)
                     
 
     def del_user_from_switch_group(self, switch_name, group, data, user):
@@ -242,6 +246,7 @@ class switch:
                 self.pdata = self.get_port(switch_name, self.plookup['clientmap'][user]['port'])
                 if self.auth_check(self.pdata, user, key):
                     self.set_port_group(switch_name, group, self.pdata, user, self.plookup)
+                    self.set_port_last_change('{} joined group --> [{}]'.format(user, group), self.pdata)
                     self.update_port(switch_name, self.plookup['clientmap'][user]['port'], self.pdata)
                     
 
@@ -253,6 +258,7 @@ class switch:
                 if not self.arf_data['stats']['group'] == None:
                     self.del_user_from_switch_group(switch_name, group, self.arf, user)
                     self.arf_data['stats']['group'] = None
+                    self.set_port_last_change('{} left group --> [{}]'.format(user, group), self.arf_data)
                     self.update_port(switch_name, self.arf['clientmap'][user]['port'], self.arf_data)
                 else:
                     pass
@@ -266,6 +272,7 @@ class switch:
                 if self.aap_data['stats']['group'] == None:
                     if not user in self.aap_data['info']['access']:
                         self.add_port_access(user, self.aap_data)
+                        self.set_port_last_change('{} allowed {} access'.format(owner, user), self.aap_data)
                         self.update_port(switch_name, self.aap['clientmap'][owner]['port'], self.aap_data)
                     
 
@@ -275,7 +282,8 @@ class switch:
              self.arp_data = self.get_port(switch_name, self.arp['clientmap'][owner]['port'])
              if self.auth_check(self.arp_data, user, key):
                  if self.arp_data['stats']['group'] == None:
-                     self.remove_port_access(user, self.arp_data )
+                     self.remove_port_access(user, self.arp_data)
+                     self.set_port_last_change('{} removed {} from access '.format(owner, user), self.arp_data)
                      self.update_port(switch_name, self.arp['clientmap'][owner]['port'], self.arp_data)
         
             
@@ -334,10 +342,10 @@ print(s.load_port('123df'))
 s.register_port('123df', 'tom', 'mykey', 'port5')
 s.register_port('123df', 'tom3', 'mykey4000', 'port6')
 s.register_port('123df', 'tom12', 'mykey4000', 'port12')
-#s.action_set_port_group('123df','mygroup20', 'tom', 'mykey')
-#s.action_set_port_group('123df', 'mygroup20', 'tom3', 'mykey4000')
-s.action_remove_from_group('123df', 'mygroup20', 'tom', 'mykey')
-s.action_remove_port_access('123df', 'timmy', 'tom', 'mykey')
+s.action_set_port_group('123df','mygroup3006', 'tom', 'mykey')
+s.action_set_port_group('123df', 'mygroup3007', 'tom3', 'mykey4000')
+#s.action_remove_from_group('123df', 'mygroup20', 'tom', 'mykey')
+#s.action_add_port_access('123df', 'timmy', 'tom', 'mykey')
 
 #print(s.get_port('123d', 'port0'))
 #print(s.get_switch('123d'))
