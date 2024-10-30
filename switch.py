@@ -138,11 +138,10 @@ class switch:
             if data['stats']['group'] == None:
                 data['stats']['group'] = group
                 self.add_switch_group(switch_name, group, self.get_switch(switch_name), owner)
-                print('k')
                 
             else:
                 if data['stats']['group'] == group:
-                    print('same')
+                    pass #when group is the same just ignore the request to set a portgroup 
                 else:
                     self.old_group = data['stats']['group']
                     self.new_group = group
@@ -249,7 +248,6 @@ class switch:
                     self.set_port_last_change('{} joined group --> [{}]'.format(user, group), self.pdata)
                     self.update_port(switch_name, self.plookup['clientmap'][user]['port'], self.pdata)
                     
-
     def action_remove_from_group(self, switch_name, group, user, key):
         self.arf = self.client_to_port_lookup(switch_name, user)
         if not self.arf == None:
@@ -260,9 +258,6 @@ class switch:
                     self.arf_data['stats']['group'] = None
                     self.set_port_last_change('{} left group --> [{}]'.format(user, group), self.arf_data)
                     self.update_port(switch_name, self.arf['clientmap'][user]['port'], self.arf_data)
-                else:
-                    pass
-
 
     def action_add_port_access(self, switch_name, user, owner, key):
         self.aap = self.client_to_port_lookup(switch_name, owner)
@@ -274,7 +269,6 @@ class switch:
                         self.add_port_access(user, self.aap_data)
                         self.set_port_last_change('{} allowed {} access'.format(owner, user), self.aap_data)
                         self.update_port(switch_name, self.aap['clientmap'][owner]['port'], self.aap_data)
-                    
 
     def action_remove_port_access(self, switch_name, user, owner, key):
          self.arp = self.client_to_port_lookup(switch_name, owner)
@@ -285,8 +279,27 @@ class switch:
                      self.remove_port_access(user, self.arp_data)
                      self.set_port_last_change('{} removed {} from access '.format(owner, user), self.arp_data)
                      self.update_port(switch_name, self.arp['clientmap'][owner]['port'], self.arp_data)
-        
-            
+
+    def action_enable_port(self, switch_name, owner, key):
+        self.aep = self.client_to_port_lookup(switch_name, owner)
+        if not self.aep == None:
+            self.aep_data = self.get_port(switch_name, self.aep['clientmap'][owner]['port'])
+            if self.auth_check(self.aep_data, owner, key):
+                if self.aep_data['stats']['state'] == False:
+                    self.enable_port(self.aep_data)
+                    self.set_port_last_change('{} enabled port'.format(owner), self.aep_data)
+                    self.update_port(switch_name, self.aep['clientmap'][owner]['port'], self.aep_data)
+
+    def action_disable_port(self, switch_name, owner, key):
+        self.adp = self.client_to_port_lookup(switch_name, owner)
+        if not self.adp == None:
+            self.adp_data = self.get_port(switch_name, self.adp['clientmap'][owner]['port'])
+            if self.auth_check(self.adp_data, owner, key):
+                if self.adp_data['stats']['state'] == True:
+                    self.disable_port(self.adp_data)
+                    self.set_port_last_change('{} disabled port'.format(owner), self.adp_data)
+                    self.update_port(switch_name, self.adp['clientmap'][owner]['port'], self.adp_data)
+                         
     def make_switch(self, switch_name, port_count=16):
         self.raw_switch_name = switch_name
         self.switch_name = '{}.json'.format(switch_name)
@@ -344,6 +357,7 @@ s.register_port('123df', 'tom3', 'mykey4000', 'port6')
 s.register_port('123df', 'tom12', 'mykey4000', 'port12')
 s.action_set_port_group('123df','mygroup3006', 'tom', 'mykey')
 s.action_set_port_group('123df', 'mygroup3007', 'tom3', 'mykey4000')
+s.action_disable_port('123df', 'tom', 'mykey')
 #s.action_remove_from_group('123df', 'mygroup20', 'tom', 'mykey')
 #s.action_add_port_access('123df', 'timmy', 'tom', 'mykey')
 
