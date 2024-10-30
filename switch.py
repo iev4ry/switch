@@ -99,6 +99,15 @@ class switch:
             pass
         else:
             return data
+
+    def change_key(self, data, new_key):
+        try:
+            data['info']['key'] = new_key
+
+        except TypeError:
+            print('cannot change key')
+        else:
+            return data
             
 
     def enable_port(self, data):
@@ -128,6 +137,16 @@ class switch:
         except TypeError:
             print('port invalid')
             return None
+        else:
+            return data
+
+    def set_port_description(self, data, description):
+        try:
+            data['info']['description'] = description
+
+        except TypeError:
+            print('Cannot set des')
+
         else:
             return data
 
@@ -238,6 +257,26 @@ class switch:
                 return self.ctp
         except TypeError:
            return None
+
+    def action_change_key(self, switch_name, owner, old_key, new_key):
+        self.achnk = self.client_to_port_lookup(switch_name, owner)
+        if not self.achnk == None:
+            self.achnk_data = self.get_port(switch_name, self.achnk['clientmap'][owner]['port'])
+            if self.auth_check(self.achnk_data, owner, old_key):
+                if not old_key == new_key:
+                    self.change_key(self.achnk_data, new_key)
+                    self.set_port_last_change('{} updated key'.format(owner), self.achnk_data)
+                    self.update_port(switch_name, self.achnk['clientmap'][owner]['port'], self.achnk_data)
+
+    def action_set_port_description(self, switch_name, description, owner, key):
+       self.asd = self.client_to_port_lookup(switch_name, owner)
+       if not self.asd == None:
+           self.asd_data = self.get_port(switch_name, self.asd['clientmap'][owner]['port'])
+           if self.auth_check(self.asd_data, owner, key):
+               self.set_port_description(self.asd_data, description)
+               self.set_port_last_change('{} updated description'.format(owner), self.asd_data)
+               self.update_port(switch_name, self.asd['clientmap'][owner]['port'], self.asd_data)
+               
     
     def action_set_port_group(self, switch_name, group, user, key):
             self.plookup = self.client_to_port_lookup(switch_name, user)
@@ -339,7 +378,8 @@ class switch:
                         'key':None,
                         'pid':self.port_id,
                         'access':[],
-                        'last-change':'SYSTEM'},
+                        'last-change':'SYSTEM',
+                        'description':None,},
                     'data':[]})
             self.switch.add(self.switch_config)
             
@@ -355,9 +395,11 @@ print(s.load_port('123df'))
 s.register_port('123df', 'tom', 'mykey', 'port5')
 s.register_port('123df', 'tom3', 'mykey4000', 'port6')
 s.register_port('123df', 'tom12', 'mykey4000', 'port12')
-s.action_set_port_group('123df','mygroup3006', 'tom', 'mykey')
+s.action_set_port_group('123df','mygroup3009', 'tom', 'mykey')
 s.action_set_port_group('123df', 'mygroup3007', 'tom3', 'mykey4000')
-s.action_disable_port('123df', 'tom', 'mykey')
+#s.action_change_key('123df', 'tom', 'mynewkey', 'mynewkey900')
+s.action_enable_port('123df', 'tom', 'mykey')
+s.action_set_port_description('123df', 'this port is from api.fastbank', 'tom', 'mykey')
 #s.action_remove_from_group('123df', 'mygroup20', 'tom', 'mykey')
 #s.action_add_port_access('123df', 'timmy', 'tom', 'mykey')
 
