@@ -196,7 +196,6 @@ class switch:
                 data['groupmap'][group]['members'].append(owner)
                 self.update_switch(switch_name, data)
                 return data
-                
 
     def del_switch_group(self, switch_name, group, data):
         if group in data['groupmap'].keys():
@@ -234,15 +233,47 @@ class switch:
     def register_port(self, switch_name, owner, key, port):
         self.rps = self.get_switch(switch_name)
         self.port_data = self.get_port(switch_name, port)
-        if not self.set_port_owner(owner, key, self.port_data, self.rps['clients']) == None:
-            self.set_port_last_change('{} registered to self'.format(owner), self.port_data)
-            self.rps['clientmap'][owner] = {}
-            self.rps['clientmap'][owner] = {
-                'port':port}
-            self.add_switch_client(owner, self.rps)
-            self.update_switch(switch_name, self.rps)
-            self.update_port(switch_name, port, self.port_data)
+        if self.port_data['stats']['owner'] == None:
+            if not self.set_port_owner(owner, key, self.port_data, self.rps['clients']) == None:
+                self.set_port_last_change('{} registered to self'.format(owner), self.port_data)
+                self.rps['clientmap'][owner] = {}
+                self.rps['clientmap'][owner] = {
+                    'port':port}
+                self.add_switch_client(owner, self.rps)
+                self.update_switch(switch_name, self.rps)
+                self.update_port(switch_name, port, self.port_data)
 
+    def send_data(self, switch_name, owner, key, destination, data, ack=False):
+        self.sd_switch = self.get_switch(switch_name)
+        if not self.sd_switch == None:
+            self.sd_owner_port = self.get_port(switch_name, self.sd_switch['clientmap'][owner]['port'])
+            if self.auth_check(self.sd_owner_port, owner, key):
+                if not self.sd_owner_port['stats']['state'] == False:
+                    self.destination_owner_port = self.get_port(switch_name, self.sd_switch['clientmap'][destination]['port'])
+                    if not self.destination_owner_port['stats']['state'] == False:
+                        self.owner_group = self.sd_owner_port['stats']['group']
+                        self.destination_group = self.destination_owner_port['stats']['group']
+                        if self.owner_group == self.destination_group:
+                            if self.owner_group == None and self.destination_group == None:
+                                print('ok') #check access list here 
+                            else:
+                                if ack:
+                                    print('would like an ack')
+                                    print(self.owner_group, self.destination_group)
+                                    print(self.format_send_data(owner, destination, data))
+                                else:
+                                    print('no ack needed')       
+                    else:
+                        print('dest port is not enabled')
+
+
+    def format_send_data(self, owner, destination, data):
+        return {
+            'id':secrets.token_urlsafe(4),
+            'source':owner,
+            'data':data,
+            'created':str(datetime.datetime.now())}
+        
     def auth_check(self, data, owner, key):
         try:
             if data['info']['key'] == key:
@@ -277,7 +308,6 @@ class switch:
                self.set_port_last_change('{} updated description'.format(owner), self.asd_data)
                self.update_port(switch_name, self.asd['clientmap'][owner]['port'], self.asd_data)
                
-    
     def action_set_port_group(self, switch_name, group, user, key):
             self.plookup = self.client_to_port_lookup(switch_name, user)
             if not self.plookup == None:
@@ -393,16 +423,19 @@ print(s.get_switch_id('123d'))
 print(s.load_port('123df'))
 #s.update_port('123df', 'port3',{'info':{'owner':'me'}})
 s.register_port('123df', 'tom', 'mykey', 'port5')
+s.register_port('123df', 'tom11', 'mykey', 'port11')
 s.register_port('123df', 'tom3', 'mykey4000', 'port6')
 s.register_port('123df', 'tom12', 'mykey4000', 'port12')
-s.action_set_port_group('123df','mygroup3009', 'tom', 'mykey')
-s.action_set_port_group('123df', 'mygroup3007', 'tom3', 'mykey4000')
+#s.action_set_port_group('123df','mygroup3009', 'tom', 'mykey')
+#s.action_set_port_group('123df', 'mygroup3009', 'tom3', 'mykey4000')
 #s.action_change_key('123df', 'tom', 'mynewkey', 'mynewkey900')
 s.action_enable_port('123df', 'tom', 'mykey')
+s.action_enable_port('123df', 'tom3', 'mykey4000')
 s.action_set_port_description('123df', 'this port is from api.fastbank', 'tom', 'mykey')
 #s.action_remove_from_group('123df', 'mygroup20', 'tom', 'mykey')
 #s.action_add_port_access('123df', 'timmy', 'tom', 'mykey')
 
+s.send_data('123df', 'tom', 'mykey', 'tom3', 'mydata', ack=True)
 #print(s.get_port('123d', 'port0'))
 #print(s.get_switch('123d'))
 #print(s.make_db_path('123d', 'switch'))
