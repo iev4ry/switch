@@ -175,7 +175,6 @@ class switch:
                            sdata['groupmap'][self.old_group]['members'].remove(owner)
                            self.add_switch_group(switch_name, self.new_group, sdata, owner)
                            data['stats']['group'] = self.new_group
-                           
         except KeyError as e:
             print(sdata)
             #self.add_switch_group(switch_name, self.new_group, sdata, owner)
@@ -200,8 +199,7 @@ class switch:
     def del_switch_group(self, switch_name, group, data):
         if group in data['groupmap'].keys():
             del data['groupmap'][group]
-            self.update_switch(switch_name, data)
-            
+            self.update_switch(switch_name, data)   
                 
     def set_port_last_change(self, change, data):
         try:
@@ -255,17 +253,21 @@ class switch:
                         self.destination_group = self.destination_owner_port['stats']['group']
                         if self.owner_group == self.destination_group:
                             if self.owner_group == None and self.destination_group == None:
-                                print('ok') #check access list here 
+                                if self.sd_owner_port['stats']['owner'] in self.destination_owner_port['info']['access']:
+                                    self.destination_owner_port['data'].append(self.format_send_data(owner, destination, data))
+                                    self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port) 
                             else:
                                 if ack:
-                                    print('would like an ack')
-                                    print(self.owner_group, self.destination_group)
-                                    print(self.format_send_data(owner, destination, data))
+                                    self.destination_owner_port['data'].append(self.format_send_data(owner, destination, data))
+                                    self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port)
+                                    #include ack function here 
                                 else:
-                                    print('no ack needed')       
+                                    self.destination_owner_port['data'].append(self.format_send_data(owner, destination, data))
+                                    self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port)       
+                        else:
+                            print('mistmatch', self.owner_group, self.destination_group) # when mismatch logg
                     else:
-                        print('dest port is not enabled')
-
+                        print('dest port is not enabled') 
 
     def format_send_data(self, owner, destination, data):
         return {
@@ -429,11 +431,13 @@ s.register_port('123df', 'tom12', 'mykey4000', 'port12')
 #s.action_set_port_group('123df','mygroup3009', 'tom', 'mykey')
 #s.action_set_port_group('123df', 'mygroup3009', 'tom3', 'mykey4000')
 #s.action_change_key('123df', 'tom', 'mynewkey', 'mynewkey900')
-s.action_enable_port('123df', 'tom', 'mykey')
-s.action_enable_port('123df', 'tom3', 'mykey4000')
+#s.action_enable_port('123df', 'tom', 'mykey')
+#s.action_enable_port('123df', 'tom3', 'mykey4000')
 s.action_set_port_description('123df', 'this port is from api.fastbank', 'tom', 'mykey')
 #s.action_remove_from_group('123df', 'mygroup20', 'tom', 'mykey')
-#s.action_add_port_access('123df', 'timmy', 'tom', 'mykey')
+#s.action_add_port_access('123df', 'tom', 'tom3', 'mykey4000')
+#s.action_remove_port_access('123df', 'tom3', 'tom', 'mykey')
+
 
 s.send_data('123df', 'tom', 'mykey', 'tom3', 'mydata', ack=True)
 #print(s.get_port('123d', 'port0'))
