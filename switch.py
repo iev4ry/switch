@@ -9,6 +9,7 @@ import os
 ''' --SWITCH--[DRAFT]
  *** This code may not be the most optimized at this stage ***
  [Author] *33
+ 
 '''
 
 class switch:
@@ -254,16 +255,16 @@ class switch:
                         if self.owner_group == self.destination_group:
                             if self.owner_group == None and self.destination_group == None:
                                 if self.sd_owner_port['stats']['owner'] in self.destination_owner_port['info']['access']:
-                                    self.destination_owner_port['data'].append(self.format_send_data(owner, destination, data))
-                                    self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port) 
-                            else:
-                                if ack:
-                                    self.destination_owner_port['data'].append(self.format_send_data(owner, destination, data))
-                                    self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port)
-                                    #include ack function here 
-                                else:
-                                    self.destination_owner_port['data'].append(self.format_send_data(owner, destination, data))
-                                    self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port)       
+                                    if ack:
+                                        self.dest_port_data = self.format_send_data(owner, destination, data)
+                                        self.ack(switch_name, self.sd_switch, self.dest_port_data['id'], owner, destination)
+                                        self.destination_owner_port['data'].append(self.dest_port_data)
+                                        self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port)
+                                        self.update_switch(switch_name, self.sd_switch)
+                                    else:
+                                        self.dest_port_data = self.format_send_data(owner, destination, data)
+                                        self.destination_owner_port['data'].append(self.dest_port_data)
+                                        self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port)
                         else:
                             print('mistmatch', self.owner_group, self.destination_group) # when mismatch logg
                     else:
@@ -291,6 +292,19 @@ class switch:
         except TypeError:
            return None
 
+    def ack(self, switch_name, switch_data, message_id, owner, destination):
+        if not message_id in switch_data['ackmap'].keys():
+            switch_data['ackmap'][message_id] = {
+                'ack':False,
+                'ack-owner':owner,
+                'ack-responder':destination,
+                'ack-when':str(datetime.datetime.now())}
+            return switch_data
+
+    def del_all_acks(self, switch_data):
+        switch_data['ackmap'] = {}
+        return switch_data
+        
     def action_change_key(self, switch_name, owner, old_key, new_key):
         self.achnk = self.client_to_port_lookup(switch_name, owner)
         if not self.achnk == None:
@@ -370,6 +384,9 @@ class switch:
                     self.disable_port(self.adp_data)
                     self.set_port_last_change('{} disabled port'.format(owner), self.adp_data)
                     self.update_port(switch_name, self.adp['clientmap'][owner]['port'], self.adp_data)
+
+    def action_del_acks(self, switch_name):
+        self.update_switch(switch_name, self.del_all_acks(self.get_switch(switch_name)))
                          
     def make_switch(self, switch_name, port_count=16):
         self.raw_switch_name = switch_name
@@ -437,9 +454,10 @@ s.action_set_port_description('123df', 'this port is from api.fastbank', 'tom', 
 #s.action_remove_from_group('123df', 'mygroup20', 'tom', 'mykey')
 #s.action_add_port_access('123df', 'tom', 'tom3', 'mykey4000')
 #s.action_remove_port_access('123df', 'tom3', 'tom', 'mykey')
+#s.send_data('123df', 'tom', 'mykey', 'tom3', 'mydata', ack=False)
+s.action_del_acks('123df')
 
 
-s.send_data('123df', 'tom', 'mykey', 'tom3', 'mydata', ack=True)
 #print(s.get_port('123d', 'port0'))
 #print(s.get_switch('123d'))
 #print(s.make_db_path('123d', 'switch'))
