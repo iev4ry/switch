@@ -298,8 +298,12 @@ class switch:
                 'ack':False,
                 'ack-owner':owner,
                 'ack-responder':destination,
-                'ack-when':str(datetime.datetime.now())}
+                'ack-when-owner':str(datetime.datetime.now())}
             return switch_data
+
+    def ack_confirm(self, switch_data, message_id, owner, key):
+        if message_id in switch_data['ackmap'].keys():
+            print('great')
 
     def del_all_acks(self, switch_data):
         switch_data['ackmap'] = {}
@@ -387,7 +391,29 @@ class switch:
 
     def action_del_acks(self, switch_name):
         self.update_switch(switch_name, self.del_all_acks(self.get_switch(switch_name)))
-                         
+
+    def action_ack_confirm(self, switch_name, message_id, owner, key):
+        self.aac = self.client_to_port_lookup(switch_name, owner)
+        if not self.aac == None:
+            self.aac_port_data = self.get_port(switch_name, self.aac['clientmap'][owner]['port'])
+            if self.auth_check(self.aac_port_data, owner, key):
+                if message_id in self.aac['ackmap'].keys():
+                    if self.aac['ackmap'][message_id]['ack-responder'] == owner:
+                        if self.aac['ackmap'][message_id]['ack'] == False:
+                            self.aac['ackmap'][message_id]['ack'] = True
+                            self.aac['ackmap'][message_id]['ack-when-client'] = str(datetime.datetime.now())
+                            self.update_switch(switch_name, self.aac)
+
+    def action_del_data(self, switch_name, owner, key):
+        self.add = self.client_to_port_lookup(switch_name, owner)
+        if not self.add == None:
+            self.add_port_data = self.get_port(switch_name, self.add['clientmap'][owner]['port'])
+            if self.auth_check(self.add_port_data, owner, key):
+                self.add_port_data['data'] = {}
+                if not len(self.add_port_data) == 0:
+                    self.add_port_data['data'] = {}
+                    self.update_port(switch_name, self.add_port_data['port'], self.add_port_data)
+                                             
     def make_switch(self, switch_name, port_count=16):
         self.raw_switch_name = switch_name
         self.switch_name = '{}.json'.format(switch_name)
@@ -432,8 +458,7 @@ class switch:
                     'data':[]})
             self.switch.add(self.switch_config)
             
-        
-            
+                  
     
 s = switch()
 s.make_switch('123df')
@@ -454,8 +479,12 @@ s.action_set_port_description('123df', 'this port is from api.fastbank', 'tom', 
 #s.action_remove_from_group('123df', 'mygroup20', 'tom', 'mykey')
 #s.action_add_port_access('123df', 'tom', 'tom3', 'mykey4000')
 #s.action_remove_port_access('123df', 'tom3', 'tom', 'mykey')
-#s.send_data('123df', 'tom', 'mykey', 'tom3', 'mydata', ack=False)
-s.action_del_acks('123df')
+#s.send_data('123df', 'tom', 'mykey', 'tom3', 'mydata', ack=True)
+#s.action_del_acks('123df')
+
+s.action_ack_confirm('123df', 'vnDg9w', 'tom3', 'mykey4000')
+
+s.action_del_data('123df', 'tom3', 'mykey4000')
 
 
 #print(s.get_port('123d', 'port0'))
