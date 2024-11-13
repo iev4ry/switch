@@ -158,7 +158,6 @@ class switch:
             if data['stats']['group'] == None:
                 data['stats']['group'] = group
                 self.add_switch_group(switch_name, group, self.get_switch(switch_name), owner)
-                
             else:
                 if data['stats']['group'] == group:
                     pass #when group is the same just ignore the request to set a portgroup 
@@ -170,9 +169,7 @@ class switch:
                            del sdata['groupmap'][self.old_group]
                            self.add_switch_group(switch_name, self.new_group, sdata, owner)
                            data['stats']['group'] = self.new_group
-                           print('ok')
                        else:
-                           print('looo')
                            sdata['groupmap'][self.old_group]['members'].remove(owner)
                            self.add_switch_group(switch_name, self.new_group, sdata, owner)
                            data['stats']['group'] = self.new_group
@@ -180,7 +177,6 @@ class switch:
             print(sdata)
             #self.add_switch_group(switch_name, self.new_group, sdata, owner)
                     
-
     def del_user_from_switch_group(self, switch_name, group, data, user):
         if user in data['groupmap'][group]['members']:
             data['groupmap'][group]['members'].remove(user)
@@ -230,6 +226,8 @@ class switch:
             return data
                       
     def register_port(self, switch_name, owner, key, port):
+        ''' Register a port - If the port or username is already in use the registry process will be skipped.
+            No response or data is returned'''
         self.rps = self.get_switch(switch_name)
         self.port_data = self.get_port(switch_name, port)
         if self.port_data['stats']['owner'] == None:
@@ -241,8 +239,41 @@ class switch:
                 self.add_switch_client(owner, self.rps)
                 self.update_switch(switch_name, self.rps)
                 self.update_port(switch_name, port, self.port_data)
+                
+    def increment_x(self, switch_name, port_data, stat):
+        try:
+            port_data['stats']['tx']
+            port_data['stats']['rx']
+        except KeyError:
+            pass
+        else:
+            if stat == 'tx':
+                port_data['stats']['tx'] = port_data['stats']['tx'] + 1
+                return port_data
+            if stat == 'rx':
+                port_data['stats']['rx'] = port_data['stats']['rx'] + 1
+                return port_data
 
+    def increment_switch_stat(self, switch_name, switch_data, stat_code):
+        try:
+            switch_data['stats']['tx']
+            switch_data['stats']['rx']
+
+        except KeyError:
+            pass
+        else:
+            if stat_code == 'tx':
+                switch_data['stats']['tx'] = switch_data['stats']['tx'] + 1
+                return switch_data
+
+            if stat_code == 'rx':
+                switch_data['stats']['rx'] = switch_data['stats']['rx'] + 1
+                return switch_data 
+
+            
     def send_data(self, switch_name, owner, key, destination, data, ack=False):
+        ''' Send data to another port - If the port is enabled, owner and key match, destination is valid, permitted
+            by access list or via group association, switch the data from source to destination'''
         self.sd_switch = self.get_switch(switch_name)
         if not self.sd_switch == None:
             self.sd_owner_port = self.get_port(switch_name, self.sd_switch['clientmap'][owner]['port'])
@@ -260,11 +291,20 @@ class switch:
                                         self.ack(switch_name, self.sd_switch, self.dest_port_data['id'], owner, destination)
                                         self.destination_owner_port['data'].append(self.dest_port_data)
                                         self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port)
+                                        self.increment_x(switch_name, self.sd_owner_port, 'tx')
                                         self.update_switch(switch_name, self.sd_switch)
                                     else:
                                         self.dest_port_data = self.format_send_data(owner, destination, data)
                                         self.destination_owner_port['data'].append(self.dest_port_data)
                                         self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port)
+                            else:
+                                self.dest_port_data = self.format_send_data(owner, destination, data)
+                                self.destination_owner_port['data'].append(self.dest_port_data)
+                                self.increment_x(switch_name, self.sd_owner_port, 'tx') #Increment SOURCE TX counter 
+                                self.increment_x(switch_name, self.destination_owner_port, 'rx') #Increment DEST RX counter
+                                self.update_port(switch_name, self.sd_owner_port['port'], self.sd_owner_port) #Write all SOURCE port changes 
+                                self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port) #Write all DEST port changes 
+                                self.update_switch(switch_name, self.sd_switch) #Write switch changes 
                         else:
                             print('mistmatch', self.owner_group, self.destination_group) # when mismatch logg
                     else:
@@ -409,12 +449,13 @@ class switch:
         if not self.add == None:
             self.add_port_data = self.get_port(switch_name, self.add['clientmap'][owner]['port'])
             if self.auth_check(self.add_port_data, owner, key):
-                self.add_port_data['data'] = {}
+                self.add_port_data['data'] = []
                 if not len(self.add_port_data) == 0:
-                    self.add_port_data['data'] = {}
+                    self.add_port_data['data'] = []
                     self.update_port(switch_name, self.add_port_data['port'], self.add_port_data)
                                              
     def make_switch(self, switch_name, port_count=16):
+        os.chdir(self.base_cwd)
         self.raw_switch_name = switch_name
         self.switch_name = '{}.json'.format(switch_name)
         self.make_path(self.raw_switch_name)
@@ -458,33 +499,58 @@ class switch:
                     'data':[]})
             self.switch.add(self.switch_config)
             
-                  
-    
+                
 s = switch()
 s.make_switch('123df')
-print(s.get_port_id('123d', 'port5'))
-print(s.get_switch_id('123d'))
-print(s.load_port('123df'))
+s.make_switch('myswitch4')
+
+s.register_port('myswitch4', 'miles', 'mykey', 'port1')
+s.register_port('myswitch4', 'june', 'mykey', 'port2')
+
+#s.action_enable_port('myswitch4', 'miles', 'mykey')
+s.action_enable_port('myswitch4', 'june', 'mykey')
+s.action_enable_port('myswitch4', 'miles', 'mykey')
+#s.action_remove_from_group('myswitch4', 'mycoolgroup', 'miles', 'mykey')
+s.action_set_port_group('myswitch4', 'mygroup500', 'miles', 'mykey')
+s.action_set_port_group('myswitch4', 'mygroup500', 'june', 'mykey')
+s.action_set_port_description('myswitch4', 'My testing port', 'miles', 'mykey')
+s.action_add_port_access('myswitch4', 'june', 'miles', 'mykey')
+s.action_add_port_access('myswitch4', 'miles', 'june', 'mykey')
+
+s.send_data('myswitch4', 'june','mykey', 'miles', 'myawesomedata123')
+s.send_data('myswitch4', 'miles', 'mykey', 'june', 'myawesomedata1234')
+
+
+#s.action_del_data('myswitch4', 'miles', 'mykey')
+#s.action_del_data('myswitch4', 'june', 'mykey')
+
+#s.increment_tx('myswitch4', 'miles', s.get_port('myswitch4', 'port1'))
+#print(s.get_port_id('123d', 'port5'))
+#print(s.get_switch_id('123d'))
+#print(s.load_port('123df'))
 #s.update_port('123df', 'port3',{'info':{'owner':'me'}})
-s.register_port('123df', 'tom', 'mykey', 'port5')
-s.register_port('123df', 'tom11', 'mykey', 'port11')
-s.register_port('123df', 'tom3', 'mykey4000', 'port6')
-s.register_port('123df', 'tom12', 'mykey4000', 'port12')
-#s.action_set_port_group('123df','mygroup3009', 'tom', 'mykey')
+
+
+
+
+#s.register_port('123df', 'tom', 'mykey', 'port5')
+#s.register_port('123df', 'tom11', 'mykey', 'port11')
+#s.register_port('123df', 'tom3', 'mykey4000', 'port6')
+#s.register_port('123df', 'tom12', 'mykey4000', 'port12')
+#s.action_set_port_group('123df','mygroup3007', 'tom', 'mykey')
 #s.action_set_port_group('123df', 'mygroup3009', 'tom3', 'mykey4000')
 #s.action_change_key('123df', 'tom', 'mynewkey', 'mynewkey900')
 #s.action_enable_port('123df', 'tom', 'mykey')
 #s.action_enable_port('123df', 'tom3', 'mykey4000')
-s.action_set_port_description('123df', 'this port is from api.fastbank', 'tom', 'mykey')
+#s.action_set_port_description('123df', 'this port is from api.fastbank', 'tom', 'mykey')
 #s.action_remove_from_group('123df', 'mygroup20', 'tom', 'mykey')
 #s.action_add_port_access('123df', 'tom', 'tom3', 'mykey4000')
 #s.action_remove_port_access('123df', 'tom3', 'tom', 'mykey')
 #s.send_data('123df', 'tom', 'mykey', 'tom3', 'mydata', ack=True)
 #s.action_del_acks('123df')
 
-s.action_ack_confirm('123df', 'vnDg9w', 'tom3', 'mykey4000')
-
-s.action_del_data('123df', 'tom3', 'mykey4000')
+#s.action_ack_confirm('123df', 'vnDg9w', 'tom3', 'mykey4000')
+#s.action_del_data('123df', 'tom3', 'mykey4000')
 
 
 #print(s.get_port('123d', 'port0'))
