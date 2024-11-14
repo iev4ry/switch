@@ -240,7 +240,7 @@ class switch:
                 self.update_switch(switch_name, self.rps)
                 self.update_port(switch_name, port, self.port_data)
                 
-    def increment_x(self, switch_name, port_data, stat):
+    def increment_port_counter(self, switch_name, port_data, stat):
         try:
             port_data['stats']['tx']
             port_data['stats']['rx']
@@ -270,7 +270,6 @@ class switch:
                 switch_data['stats']['rx'] = switch_data['stats']['rx'] + 1
                 return switch_data 
 
-            
     def send_data(self, switch_name, owner, key, destination, data, ack=False):
         ''' Send data to another port - If the port is enabled, owner and key match, destination is valid, permitted
             by access list or via group association, switch the data from source to destination'''
@@ -290,23 +289,30 @@ class switch:
                                         self.dest_port_data = self.format_send_data(owner, destination, data)
                                         self.ack(switch_name, self.sd_switch, self.dest_port_data['id'], owner, destination)
                                         self.destination_owner_port['data'].append(self.dest_port_data)
+                                        self.increment_port_counter(switch_name, self.sd_owner_port, 'tx')
+                                        self.increment_port_counter(switch_name, self.destination_owner_port, 'rx')
                                         self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port)
-                                        self.increment_x(switch_name, self.sd_owner_port, 'tx')
+                                        self.update_port(switch_name, self.sd_owner_port['port'], self.sd_owner_port)
                                         self.update_switch(switch_name, self.sd_switch)
                                     else:
                                         self.dest_port_data = self.format_send_data(owner, destination, data)
+                                        self.increment_port_counter(switch_name, self.sd_owner_port, 'tx')
+                                        self.increment_port_counter(switch_name, self.destination_owner_port, 'rx')
                                         self.destination_owner_port['data'].append(self.dest_port_data)
-                                        self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port)
+                                        self.update_port(switch_name, self.sd_owner_port['port'], self.sd_owner_port)
+                                        self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port) 
                             else:
-                                self.dest_port_data = self.format_send_data(owner, destination, data)
-                                self.destination_owner_port['data'].append(self.dest_port_data)
-                                self.increment_x(switch_name, self.sd_owner_port, 'tx') #Increment SOURCE TX counter 
-                                self.increment_x(switch_name, self.destination_owner_port, 'rx') #Increment DEST RX counter
-                                self.update_port(switch_name, self.sd_owner_port['port'], self.sd_owner_port) #Write all SOURCE port changes 
-                                self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port) #Write all DEST port changes 
-                                self.update_switch(switch_name, self.sd_switch) #Write switch changes 
-                        else:
-                            print('mistmatch', self.owner_group, self.destination_group) # when mismatch logg
+                                if self.sd_owner_port['stats']['owner'] in self.destination_owner_port['info']['access']:
+                                    self.dest_port_data = self.format_send_data(owner, destination, data)
+                                    self.destination_owner_port['data'].append(self.dest_port_data)
+                                    self.increment_port_counter(switch_name, self.sd_owner_port, 'tx') #Increment SOURCE TX counter 
+                                    self.increment_port_counter(switch_name, self.destination_owner_port, 'rx') #Increment DEST RX counter
+                                    self.update_port(switch_name, self.sd_owner_port['port'], self.sd_owner_port) #Write all SOURCE port changes 
+                                    self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port) #Write all DEST port changes 
+                                    self.update_switch(switch_name, self.sd_switch) #Write switch changes
+                                else:
+                                    print('passing')
+                                    
                     else:
                         print('dest port is not enabled') 
 
@@ -377,15 +383,16 @@ class switch:
                     self.set_port_last_change('{} joined group --> [{}]'.format(user, group), self.pdata)
                     self.update_port(switch_name, self.plookup['clientmap'][user]['port'], self.pdata)
                     
-    def action_remove_from_group(self, switch_name, group, user, key):
+    def action_remove_from_group(self, switch_name, user, key):
         self.arf = self.client_to_port_lookup(switch_name, user)
         if not self.arf == None:
             self.arf_data = self.get_port(switch_name, self.arf['clientmap'][user]['port'])
             if self.auth_check(self.arf_data, user, key):
+                self.user_group = self.arf_data['stats']['group']
                 if not self.arf_data['stats']['group'] == None:
-                    self.del_user_from_switch_group(switch_name, group, self.arf, user)
+                    self.del_user_from_switch_group(switch_name, self.user_group, self.arf, user)
                     self.arf_data['stats']['group'] = None
-                    self.set_port_last_change('{} left group --> [{}]'.format(user, group), self.arf_data)
+                    self.set_port_last_change('{} left group --> [{}]'.format(user, self.user_group), self.arf_data)
                     self.update_port(switch_name, self.arf['clientmap'][user]['port'], self.arf_data)
 
     def action_add_port_access(self, switch_name, user, owner, key):
@@ -511,8 +518,8 @@ s.register_port('myswitch4', 'june', 'mykey', 'port2')
 s.action_enable_port('myswitch4', 'june', 'mykey')
 s.action_enable_port('myswitch4', 'miles', 'mykey')
 #s.action_remove_from_group('myswitch4', 'mycoolgroup', 'miles', 'mykey')
-s.action_set_port_group('myswitch4', 'mygroup500', 'miles', 'mykey')
-s.action_set_port_group('myswitch4', 'mygroup500', 'june', 'mykey')
+#s.action_set_port_group('myswitch4', 'mygroup500', 'miles', 'mykey')
+#s.action_set_port_group('myswitch4', 'mygroup500', 'june', 'mykey')
 s.action_set_port_description('myswitch4', 'My testing port', 'miles', 'mykey')
 s.action_add_port_access('myswitch4', 'june', 'miles', 'mykey')
 s.action_add_port_access('myswitch4', 'miles', 'june', 'mykey')
@@ -524,7 +531,14 @@ s.send_data('myswitch4', 'miles', 'mykey', 'june', 'myawesomedata1234')
 #s.action_del_data('myswitch4', 'miles', 'mykey')
 #s.action_del_data('myswitch4', 'june', 'mykey')
 
-#s.increment_tx('myswitch4', 'miles', s.get_port('myswitch4', 'port1'))
+
+s.action_add_port_access('myswitch4', 'june', 'miles', 'mykey')
+s.action_add_port_access('myswitch4', 'miles', 'june', 'mykey')
+
+s.action_remove_from_group('myswitch4', 'miles', 'mykey')
+
+
+
 #print(s.get_port_id('123d', 'port5'))
 #print(s.get_switch_id('123d'))
 #print(s.load_port('123df'))
