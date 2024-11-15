@@ -1,8 +1,10 @@
 from pathlib import Path
 from pysondb import db
+import rater
 import datetime
 import secrets
 import json
+import time
 import os
 
 
@@ -16,8 +18,10 @@ class switch:
     def __init__(self):
         self.switch_list_name = 'switch_list.json'
         self.base_cwd = os.getcwd()
+        self.rate = rater.rate()
         if not Path(self.switch_list_name).is_file():
             self.switch_list = db.getDb(self.switch_list_name)
+            
 
     def make_json(self, json_able_data):
         return json.dumps(json_able_data, indent=4)
@@ -147,7 +151,6 @@ class switch:
 
         except TypeError:
             print('Cannot set des')
-
         else:
             return data
 
@@ -254,7 +257,7 @@ class switch:
                 port_data['stats']['rx'] = port_data['stats']['rx'] + 1
                 return port_data
 
-    def increment_switch_stat(self, switch_name, switch_data, stat_code):
+    def increment_switch_counter(self, switch_name, switch_data, stat_code):
         try:
             switch_data['stats']['tx']
             switch_data['stats']['rx']
@@ -293,14 +296,19 @@ class switch:
                                         self.increment_port_counter(switch_name, self.destination_owner_port, 'rx')
                                         self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port)
                                         self.update_port(switch_name, self.sd_owner_port['port'], self.sd_owner_port)
+                                        self.increment_switch_counter(switch_name, self.sd_switch, 'tx')
+                                        self.increment_switch_counter(switch_name, self.sd_switch, 'rx')
                                         self.update_switch(switch_name, self.sd_switch)
                                     else:
                                         self.dest_port_data = self.format_send_data(owner, destination, data)
                                         self.increment_port_counter(switch_name, self.sd_owner_port, 'tx')
                                         self.increment_port_counter(switch_name, self.destination_owner_port, 'rx')
+                                        self.increment_switch_counter(switch_name, self.sd_switch, 'tx')
+                                        self.increment_switch_counter(switch_name, self.sd_switch, 'rx')
                                         self.destination_owner_port['data'].append(self.dest_port_data)
                                         self.update_port(switch_name, self.sd_owner_port['port'], self.sd_owner_port)
-                                        self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port) 
+                                        self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port)
+                                        self.update_switch(switch_name, self.sd_switch)
                             else:
                                 if self.sd_owner_port['stats']['owner'] in self.destination_owner_port['info']['access']:
                                     self.dest_port_data = self.format_send_data(owner, destination, data)
@@ -311,8 +319,7 @@ class switch:
                                     self.update_port(switch_name, self.destination_owner_port['port'], self.destination_owner_port) #Write all DEST port changes 
                                     self.update_switch(switch_name, self.sd_switch) #Write switch changes
                                 else:
-                                    print('passing')
-                                    
+                                    print(' not in list')   
                     else:
                         print('dest port is not enabled') 
 
@@ -451,6 +458,14 @@ class switch:
                             self.aac['ackmap'][message_id]['ack-when-client'] = str(datetime.datetime.now())
                             self.update_switch(switch_name, self.aac)
 
+    def action_read_data(self, switch_name, owner, key):
+        self.ard = self.client_to_port_lookup(switch_name, owner)
+        if not self.ard == None:
+            self.ard_port_data = self.get_port(switch_name, self.ard['clientmap'][owner]['port'])
+            if self.auth_check(self.ard_port_data, owner, key):
+                if self.rate.submit(owner, 'action.read.data') == True:
+                    return self.ard_port_data
+                          
     def action_del_data(self, switch_name, owner, key):
         self.add = self.client_to_port_lookup(switch_name, owner)
         if not self.add == None:
@@ -459,6 +474,7 @@ class switch:
                 self.add_port_data['data'] = []
                 if not len(self.add_port_data) == 0:
                     self.add_port_data['data'] = []
+                    self.add_port_data['stats']['tx'], self.add_port_data['stats']['rx'] = 0,0 
                     self.update_port(switch_name, self.add_port_data['port'], self.add_port_data)
                                              
     def make_switch(self, switch_name, port_count=16):
@@ -536,6 +552,22 @@ s.action_add_port_access('myswitch4', 'june', 'miles', 'mykey')
 s.action_add_port_access('myswitch4', 'miles', 'june', 'mykey')
 
 s.action_remove_from_group('myswitch4', 'miles', 'mykey')
+
+s.action_read_data('myswitch4', 'miles', 'mykey')
+s.action_read_data('myswitch4', 'june', 'mykey')
+s.action_read_data('myswitch4', 'june', 'mykey')
+time.sleep(2)
+s.action_read_data('myswitch4', 'june', 'mykey')
+
+
+
+#s.action_read_data('myswitch4', 'miles', 'mykey')
+
+#time.sleep(2)
+#s.action_read_data('myswitch4', 'miles', 'mykey')
+
+
+#s.action_del_data('myswitch4', 'miles', 'mykey')
 
 
 
