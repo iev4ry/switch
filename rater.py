@@ -52,17 +52,17 @@ class rate:
                     self.make_history_entry(reason, owner)
                     if len(self.rate_db[owner]['violations']) >= 3:
                         self.rate_db[owner]['ban-status'] = True
-                        print('violated threshold')
+                        print('violated threshold') #add logging here later 
                         return False
                     else:
                         return True
             else:
                 if self.rate_db[owner]['ban-status'] == True:
-                    print('user is banned')
+                    print('user is banned') #add logging here later 
                     return False
                
         
-        
+#section below is just for debugging         
 myrate = rate()
 myrate.submit('myuser', 'doing.something.here')
 time.sleep(4)
